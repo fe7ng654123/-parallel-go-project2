@@ -9,32 +9,33 @@
 // If you have referenced to any source code that is not written by you
 // You have to cite them here.
 
-
 __global__ void
 vectorComp(const float *A, int *C, int number, int dim)
 {
     int tid = blockDim.x * blockIdx.x + threadIdx.x;
-	// if(tid>number) printf("tid = %d !!!!!!\n",tid);
 	int counter =0;
 	int z =0; // step from 0..dim
-	int flag =0;
 	
 	for (int j = 0; j < number*dim; j++)
 	{
-		if (A[tid*dim+z] > A[j]){
+		if (tid*dim+z == j){
+			j+= (dim-1);
+			counter=0;
+			z=0;
+			continue;
+		}
+
+		if (A[tid*dim+z] >= A[j])
 			counter++;
-			flag =1;
-		}else if(A[tid*dim+z] == A[j]) 
-			counter++;
+
 		z++;
 		if( z == dim ){
 
-			if(flag && counter==dim){
+			if( counter==dim){
 				C[tid] = -1;
 				break;
 			} 
 			counter=0;
-			flag =0;
 			z=0;
 		}
 		
