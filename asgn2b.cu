@@ -15,6 +15,13 @@ vectorComp(const float *A, int *C, int number, int dim)
     int tid = blockDim.x * blockIdx.x + threadIdx.x;
 	int counter =0;
 	int z =0; // step from 0..dim
+
+	float tmp[7] = {0};
+
+	for (int i = 0; i < dim; i++)
+	{
+		tmp[i] = A[tid*dim+i];
+	}
 	
 	for (int j = 0; j < number*dim; j++)
 	{
@@ -25,10 +32,10 @@ vectorComp(const float *A, int *C, int number, int dim)
 			continue;
 		}
 
-		if (A[tid*dim+z] >= A[j])
+		if (tmp[z] >= A[j])
 			counter++;
-
 		z++;
+
 		if( z == dim ){
 
 			if( counter==dim){
@@ -41,6 +48,8 @@ vectorComp(const float *A, int *C, int number, int dim)
 		
 	}
 }
+
+
 
 extern "C" int asgn2b(Point * points, Point ** pPermissiblePoints, int number, int dim, int gpuid)
 {
