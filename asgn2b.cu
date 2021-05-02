@@ -10,11 +10,11 @@
 // You have to cite them here.
 
 __global__ void
-vectorComp(const float *A, int *C, int number, int dim)
+vectorComp(const float *A, int *C, const int number, const int dim)
 {
     int tid = blockDim.x * blockIdx.x + threadIdx.x;
-	int counter =0;
-	int z =0; // step from 0..dim
+	// int counter =0;
+	// int z =0; // step from 0..dim
 
 	float tmp[7] = {0};
 
@@ -22,34 +22,28 @@ vectorComp(const float *A, int *C, int number, int dim)
 	{
 		tmp[i] = A[tid*dim+i];
 	}
-	
-	for (int j = 0; j < number*dim; j++)
-	{
-		if (tid*dim+z == j){
-			j+= (dim-1);
-			counter=0;
-			z=0;
-			continue;
-		}
 
-		if (tmp[z] >= A[j])
-			counter++;
-		z++;
+	for (int j = 0; j < number*dim; j+=dim){
+		// counter =0;
+		if(j == tid*dim) continue;
 
-		if( z == dim ){
-
-			if( counter==dim){
-				C[tid] = -1;
-				break;
-			} 
-			counter=0;
-			z=0;
+		for (int k = 0; k< dim; k++)
+		{
+			if (tmp[k]<A[k+j]){
+				goto come_here;
+			}
+				
 		}
 		
+		C[tid] = -1;
+		break;
+
+		come_here:
+			continue;
+		
 	}
+	
 }
-
-
 
 extern "C" int asgn2b(Point * points, Point ** pPermissiblePoints, int number, int dim, int gpuid)
 {
@@ -96,36 +90,26 @@ extern "C" int asgn2b(Point * points, Point ** pPermissiblePoints, int number, i
 
 	// Allocate the device input vector A
     float *d_A = NULL;
-    err = cudaMalloc((void **)&d_A, dim*sizeof(float)*number);
-
-	// Allocate the device input vector B
-    // float *d_B = NULL;
-    // err = cudaMalloc((void **)&d_B, dim*sizeof(float)*number);
+    // err = cudaMalloc((void **)&d_A, dim*sizeof(float)*number);
+	cudaMallocManaged(&d_A, dim*number*sizeof(float));
 
 
 	int *d_ResultID = NULL;
-    err = cudaMalloc((void **)&d_ResultID, number*sizeof(int));
+    // err = cudaMalloc((void **)&d_ResultID, number*sizeof(int));
+	cudaMallocManaged(&d_ResultID, number*sizeof(int));
 
 
-	float* h_A = (float*)malloc(sizeof(float)*dim*number);
-	// float* h_B = (float*)malloc(sizeof(float)*dim*number);
 
 	for (int i = 0; i < number; i++)
 	{
 		for (int j = 0; j < dim; j++)
 		{
-			h_A[i*dim+j] = points[i].values[j];
+			d_A[i*dim+j] = points[i].values[j];
 			// h_B[i*dim+j] = points[i].values[j];
 		}
 		
 	}
 	
-
-	err = cudaMemcpy(d_A, h_A, dim*sizeof(float)*number, cudaMemcpyHostToDevice);
-
-
-	// err = cudaMemcpy(d_B, h_B, dim*sizeof(float)*number, cudaMemcpyHostToDevice);
-
 
 	int threadsPerBlock = 256;
     int blocksPerGrid =(number + threadsPerBlock - 1) / threadsPerBlock;
@@ -138,22 +122,13 @@ extern "C" int asgn2b(Point * points, Point ** pPermissiblePoints, int number, i
         exit(EXIT_FAILURE);
     }
 
-	int *h_ResultID = (int *)malloc(number*sizeof(int));
-	err = cudaMemcpy(h_ResultID, d_ResultID, number*sizeof(int), cudaMemcpyDeviceToHost);
 
-	
-	//prints permissible points with ID<20 
-	// for (int i = 0; i < 20; i++)
-	// {
-	// 	// printf("h_ResultID[%d]= %d | ",i,h_ResultID[i]);
-	// 	if(h_ResultID[i] == 0)
-	// 		printf("ID %d\n", i+1);
-	// }
-	// printf("\n");
+	cudaDeviceSynchronize();
+
 
 	for (int i = 0; i < number; i++)
 	{
-		if(h_ResultID[i] != -1){
+		if(d_ResultID[i] != -1){
 			memcpy(&permissiblePoints[permissiblePointNum],&points[i],sizeof(Point));
 			permissiblePointNum++;
 		} 
@@ -164,11 +139,7 @@ extern "C" int asgn2b(Point * points, Point ** pPermissiblePoints, int number, i
     printf("final permissiblePointNum = %d\n", permissiblePointNum);
     
 	cudaFree(d_A);
-	// cudaFree(d_B);
 	cudaFree(d_ResultID);
-	free(h_A);
-	// free(h_B);
-	free(h_ResultID);
     
 
     printf("\n--------------end---------------\n\n");
